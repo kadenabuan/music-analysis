@@ -1,0 +1,7 @@
+# raw Spotify exports contain IP addresses and device info; only the summary in dashboard/data.json is published
+Streaming_History_*.json
+my_spotify_data*/
+*.zip
+
+.DS_Store
+__pycache__/

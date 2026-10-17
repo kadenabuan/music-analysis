@@ -1,0 +1,758 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="description" content="An interactive look at three years of my Spotify listening history.">
+<title>Listening Years</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,700&family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@400;500;600&display=swap">
+<style>
+/* base reset */
+*, *::before, *::after { box-sizing: border-box; }
+:root { padding-top: env(safe-area-inset-top, 0px); padding-bottom: env(safe-area-inset-bottom, 0px); }
+body { margin: 0; }
+img { max-width: 100%; }
+[hidden] { display: none !important; }
+
+/* Layout: sticky range bar on top, summary tiles, then one full-width panel per view; lists pair up side by side on wide screens */
+:root {
+  --bg: #f4f6f8;
+  --surface: #ffffff;
+  --ink: #10161d;
+  --muted: #5a6573;
+  --line: #e1e5ea;
+  --accent: #2a78d6;
+  --accent-soft: #e3eefb;
+  --heat-hi: #1c5cab;
+  --font-display: "Bricolage Grotesque", "Avenir Next", system-ui, sans-serif;
+  --font-body: "IBM Plex Sans", system-ui, -apple-system, "Segoe UI", sans-serif;
+  --font-data: "IBM Plex Mono", ui-monospace, "SF Mono", Menlo, monospace;
+  --radius: 10px;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #0e1115; --surface: #161a20; --ink: #edf0f3; --muted: #9aa4b0; --line: #262d36;
+    --accent: #3987e5; --accent-soft: #1a2738; --heat-hi: #6da7ec; color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #0e1115; --surface: #161a20; --ink: #edf0f3; --muted: #9aa4b0; --line: #262d36;
+  --accent: #3987e5; --accent-soft: #1a2738; --heat-hi: #6da7ec; color-scheme: dark;
+}
+
+body {
+  background: var(--bg);
+  color: var(--ink);
+  font-family: var(--font-body);
+  font-size: 15px;
+  line-height: 1.5;
+}
+body::before {
+  content: ""; position: fixed; inset: 0 0 auto;
+  height: env(safe-area-inset-top, 0px); z-index: 10; background: var(--bg);
+}
+.wrap {
+  max-width: 1120px;
+  margin: 0 auto;
+  padding-left: max(16px, env(safe-area-inset-left, 0px));
+  padding-right: max(16px, env(safe-area-inset-right, 0px));
+}
+
+header.top { padding-block: 32px 8px; }
+h1 {
+  font-family: var(--font-display);
+  font-weight: 700;
+  font-size: clamp(30px, 5vw, 44px);
+  line-height: 1.05;
+  letter-spacing: -0.02em;
+  margin: 0;
+  text-wrap: balance;
+}
+.sub { color: var(--muted); margin: 6px 0 0; }
+
+.rangebar {
+  position: sticky;
+  top: env(safe-area-inset-top, 0px);
+  z-index: 5;
+  background: var(--bg);
+  border-bottom: 1px solid var(--line);
+}
+.rangebar .wrap {
+  display: flex; flex-wrap: wrap; align-items: center; gap: 8px 16px;
+  padding-block: 12px;
+}
+.chips { display: flex; flex-wrap: wrap; gap: 6px; }
+.chip, .seg button {
+  font: 500 13px/1 var(--font-body);
+  color: var(--ink);
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  padding: 7px 12px;
+  cursor: pointer;
+}
+.chip:hover, .seg button:hover { border-color: var(--accent); }
+.chip[aria-pressed="true"], .seg button[aria-pressed="true"] {
+  background: var(--accent); border-color: var(--accent); color: #fff;
+}
+.months { display: flex; align-items: center; gap: 6px; color: var(--muted); font-size: 13px; }
+select, input[type="search"] {
+  font: 14px var(--font-body);
+  color: var(--ink);
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 6px 8px;
+}
+:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+
+main.wrap { display: grid; gap: 20px; padding-block: 20px 48px; }
+
+.tiles {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+  gap: 12px;
+}
+.tile {
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  padding: 14px 16px;
+}
+.tile .label {
+  font-size: 12px; text-transform: uppercase; letter-spacing: 0.06em; color: var(--muted);
+}
+.tile .value {
+  font-family: var(--font-display); font-weight: 700; font-size: 28px; line-height: 1.15;
+  font-variant-numeric: tabular-nums; margin-top: 4px;
+}
+.tile .note { font-size: 13px; color: var(--muted); }
+
+.panel {
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  padding: 18px 20px 20px;
+  min-width: 0;
+}
+.panel-head {
+  display: flex; flex-wrap: wrap; align-items: baseline; justify-content: space-between;
+  gap: 8px 16px; margin-bottom: 14px;
+}
+h2 {
+  font-family: var(--font-display); font-weight: 700; font-size: 21px;
+  letter-spacing: -0.01em; margin: 0;
+}
+.panel-head p { margin: 2px 0 0; color: var(--muted); font-size: 13px; }
+.controls { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+.seg { display: inline-flex; gap: 4px; }
+
+.chart-box { position: relative; height: 280px; }
+.rank-bar .panel-head { margin: 8px 0 -6px; }
+
+.pair { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
+@media (max-width: 820px) { .pair { grid-template-columns: 1fr; } }
+
+ol.bars { list-style: none; margin: 0; padding: 0; display: grid; gap: 2px; }
+.row {
+  width: 100%;
+  display: grid;
+  grid-template-columns: 2.2em minmax(0, 1fr) auto;
+  gap: 2px 10px;
+  align-items: center;
+  text-align: left;
+  font: inherit; color: inherit;
+  background: none; border: 0; border-radius: 6px;
+  padding: 6px 6px;
+}
+button.row { cursor: pointer; }
+button.row:hover { background: var(--accent-soft); }
+.row .rank { font: 13px var(--font-data); color: var(--muted); text-align: right; }
+.row .name { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.row .name small { color: var(--muted); font-size: 13px; }
+.row .val {
+  font: 13px var(--font-data); font-variant-numeric: tabular-nums; color: var(--muted);
+  text-align: right; white-space: nowrap;
+}
+.row .bar { grid-column: 2 / 4; height: 6px; background: var(--accent-soft); border-radius: 3px; }
+.row .bar i { display: block; height: 100%; background: var(--accent); border-radius: 3px; }
+
+.heat-scroll { overflow-x: auto; }
+.heat {
+  display: grid;
+  grid-template-columns: 2.6em repeat(24, minmax(18px, 1fr));
+  gap: 2px;
+  min-width: 560px;
+  font: 11px var(--font-data);
+  color: var(--muted);
+}
+.heat .cell { aspect-ratio: 1 / 1; border-radius: 3px; cursor: default; }
+.heat .cell:hover { outline: 2px solid var(--ink); outline-offset: -1px; }
+.heat .hl { text-align: left; white-space: nowrap; }
+.heat .dl { align-self: center; }
+.heat-foot {
+  display: flex; flex-wrap: wrap; gap: 8px 20px; align-items: center; justify-content: space-between;
+  margin-top: 12px; font-size: 13px; color: var(--muted);
+}
+.heat-readout { color: var(--ink); min-height: 1.5em; }
+.legend-ramp { display: flex; align-items: center; gap: 6px; }
+.legend-ramp span.ramp {
+  width: 120px; height: 8px; border-radius: 4px;
+  background: linear-gradient(90deg, var(--surface), var(--heat-hi));
+  border: 1px solid var(--line);
+}
+
+.search { display: flex; gap: 8px; align-items: center; }
+.search input { width: min(320px, 100%); }
+.artist-stats {
+  display: flex; flex-wrap: wrap; gap: 6px 24px; margin: 4px 0 16px;
+  font-size: 14px; color: var(--muted);
+}
+.artist-stats b { color: var(--ink); font-family: var(--font-data); font-weight: 500; }
+.artist-name {
+  font-family: var(--font-display); font-weight: 700; font-size: 26px; margin: 0;
+  letter-spacing: -0.01em;
+}
+h3 { font-size: 13px; text-transform: uppercase; letter-spacing: 0.06em; color: var(--muted); margin: 0 0 8px; font-weight: 600; }
+.empty { color: var(--muted); padding: 24px 0; }
+
+footer { color: var(--muted); font-size: 14px; max-width: 70ch; border-top: 1px solid var(--line); padding-top: 20px; }
+footer p { margin: 8px 0 0; }
+.about-title { font-size: 17px; color: var(--ink); }
+.error { padding: 40px 0; }
+
+@media (max-width: 520px) {
+  .panel { padding: 14px 14px 16px; }
+  .tile .value { font-size: 24px; }
+}
+@media (prefers-reduced-motion: reduce) { * { transition: none !important; animation: none !important; } }
+</style>
+</head>
+<body>
+
+<header class="top wrap">
+  <h1>Listening Years</h1>
+  <p class="sub" id="subtitle">Loading your streaming history…</p>
+</header>
+
+<div class="rangebar">
+  <div class="wrap">
+    <div class="chips" id="presets" role="group" aria-label="Date range presets"></div>
+    <div class="months">
+      <label for="start-month">From</label>
+      <select id="start-month"></select>
+      <label for="end-month">to</label>
+      <select id="end-month"></select>
+    </div>
+  </div>
+</div>
+
+<main class="wrap" id="app">
+  <section class="tiles" id="tiles" aria-label="Summary"></section>
+
+  <section class="panel" id="overtime">
+    <div class="panel-head">
+      <div>
+        <h2>Listening over time</h2>
+        <p id="overtime-note">Average listening per calendar day, days with no listening included.</p>
+      </div>
+      <div class="seg" role="group" aria-label="Group by">
+        <button type="button" id="ot-month" aria-pressed="true">By month</button>
+        <button type="button" id="ot-year" aria-pressed="false">By year</button>
+      </div>
+    </div>
+    <div class="chart-box"><canvas id="overtime-chart" aria-label="Average daily listening chart" role="img"></canvas></div>
+  </section>
+
+  <section class="rank-bar">
+    <div class="panel-head">
+      <div>
+        <h2>Top artists &amp; songs</h2>
+        <p>The ranking applies to both lists and to the artist lookup.</p>
+      </div>
+      <div class="controls">
+        <div class="seg" role="group" aria-label="Rank by">
+          <button type="button" id="sort-ms" aria-pressed="true">By time</button>
+          <button type="button" id="sort-plays" aria-pressed="false">By plays</button>
+        </div>
+        <label for="top-n" class="months">Show</label>
+        <select id="top-n">
+          <option value="10">Top 10</option>
+          <option value="20" selected>Top 20</option>
+          <option value="50">Top 50</option>
+        </select>
+      </div>
+    </div>
+  </section>
+
+  <div class="pair">
+    <section class="panel">
+      <div class="panel-head">
+        <div>
+          <h2>Top artists</h2>
+          <p>Select an artist to see more about them below.</p>
+        </div>
+      </div>
+      <ol class="bars" id="top-artists"></ol>
+    </section>
+    <section class="panel">
+      <div class="panel-head">
+        <div>
+          <h2>Top songs</h2>
+          <p>A play counts once it reaches 30 seconds.</p>
+        </div>
+      </div>
+      <ol class="bars" id="top-songs"></ol>
+    </section>
+  </div>
+
+
+  <section class="panel" id="habits">
+    <div class="panel-head">
+      <div>
+        <h2>When you listen</h2>
+        <p>Average minutes listened in each hour, by day of the week, in your local time.</p>
+      </div>
+    </div>
+    <div class="heat-scroll"><div class="heat" id="heat" role="grid" aria-label="Listening by weekday and hour"></div></div>
+    <div class="heat-foot">
+      <div class="heat-readout" id="heat-readout">Hover over a square to see its average.</div>
+      <div class="legend-ramp"><span>0 min</span><span class="ramp"></span><span id="heat-max">—</span></div>
+    </div>
+  </section>
+
+  <section class="panel" id="drill">
+    <div class="panel-head">
+      <div>
+        <h2>Artist lookup</h2>
+        <p>Search for any artist you've listened to.</p>
+      </div>
+      <div class="search">
+        <label for="artist-search" class="months">Artist</label>
+        <input type="search" id="artist-search" list="artist-list" placeholder="Search artists" autocomplete="off">
+        <datalist id="artist-list"></datalist>
+      </div>
+    </div>
+    <div id="artist-body"></div>
+  </section>
+
+  <footer>
+    <h2 class="about-title">About this project</h2>
+    <p>I built this from my Spotify Extended Streaming History export. A Python script (<code>build-dashboard.py</code>) reads the raw files, converts every timestamp to local time, and boils the data down to totals by song and month, so no individual plays, IP addresses or devices are published. A play counts once it reaches 30 seconds, the same rule Spotify uses. Charts are drawn with Chart.js.</p>
+    <p id="footer"></p>
+  </footer>
+</main>
+
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.js"></script>
+<script>
+// ---------- helpers ----------
+const $ = (s) => document.querySelector(s);
+const esc = (s) => String(s).replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+const nf = new Intl.NumberFormat();
+const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+const WEEKDAYS = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
+const WEEKDAYS_LONG = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"];
+
+function fmtDuration(ms) {
+  const total = Math.round(ms / 60000);
+  const h = Math.floor(total / 60), m = total % 60;
+  if (h === 0) return `${m} min`;
+  return `${nf.format(h)} h ${m} min`;
+}
+function fmtHours(ms) { return `${nf.format(Math.round(ms / 3600000))} h`; }
+function monthLabel(m, long) {
+  const [y, mo] = m.split("-");
+  return long ? `${MONTHS[+mo - 1]} ${y}` : `${MONTHS[+mo - 1]} '${y.slice(2)}`;
+}
+function hourLabel(h) { return h === 0 ? "12 AM" : h < 12 ? `${h} AM` : h === 12 ? "12 PM" : `${h - 12} PM`; }
+function cssVar(name) { return getComputedStyle(document.documentElement).getPropertyValue(name).trim(); }
+
+// ---------- state ----------
+let D, months, years, dayRows;
+const state = { start: null, end: null, sortBy: "ms", topN: 20, overtime: "month", artist: null };
+let agg = null;
+const charts = {};
+
+fetch("data.json")
+  .then((r) => { if (!r.ok) throw new Error(r.status); return r.json(); })
+  .then(init)
+  .catch(() => {
+    $("#subtitle").textContent = "";
+    $("#app").innerHTML = '<p class="error">The listening data didn’t load. Rebuild it with <code>python3 build-dashboard.py</code> and republish the page.</p>';
+  });
+
+function init(data) {
+  D = data;
+  dayRows = Object.entries(D.daily).sort((a, b) => (a[0] < b[0] ? -1 : 1));
+  months = [...new Set(dayRows.map(([d]) => d.slice(0, 7)))];
+  years = [...new Set(months.map((m) => m.slice(0, 4)))];
+  state.start = months[0];
+  state.end = months[months.length - 1];
+
+  $("#subtitle").textContent =
+    `My Spotify streaming history from ${monthLabel(months[0], true)} to ${monthLabel(state.end, true)}.`;
+  $("#footer").textContent =
+    `Built from Spotify's Extended Streaming History (audio only). Data generated ${new Date(D.meta.generated_at).toLocaleString()}.`;
+
+  const opts = months.map((m) => `<option value="${m}">${monthLabel(m, true)}</option>`).join("");
+  $("#start-month").innerHTML = opts;
+  $("#end-month").innerHTML = opts;
+
+  const presets = [["all", "All time"], ...years.map((y) => [y, y]), ["last12", "Last 12 months"]];
+  $("#presets").innerHTML = presets
+    .map(([k, label]) => `<button type="button" class="chip" data-preset="${k}">${label}</button>`)
+    .join("");
+
+  bindControls();
+  update();
+}
+
+function bindControls() {
+  $("#presets").addEventListener("click", (e) => {
+    const k = e.target.closest("[data-preset]")?.dataset.preset;
+    if (!k) return;
+    if (k === "all") { state.start = months[0]; state.end = months[months.length - 1]; }
+    else if (k === "last12") { state.end = months[months.length - 1]; state.start = months[Math.max(0, months.length - 12)]; }
+    else {
+      const inYear = months.filter((m) => m.startsWith(k));
+      state.start = inYear[0]; state.end = inYear[inYear.length - 1];
+    }
+    update();
+  });
+  const onMonth = () => {
+    let s = $("#start-month").value, e = $("#end-month").value;
+    if (s > e) [s, e] = [e, s];
+    state.start = s; state.end = e;
+    update();
+  };
+  $("#start-month").addEventListener("change", onMonth);
+  $("#end-month").addEventListener("change", onMonth);
+
+  const seg = (ids, key, values) => ids.forEach((id, i) => $(id).addEventListener("click", () => {
+    state[key] = values[i];
+    ids.forEach((other, j) => $(other).setAttribute("aria-pressed", String(i === j)));
+    key === "overtime" ? renderOvertime() : (renderTop(), renderArtist());
+  }));
+  seg(["#ot-month", "#ot-year"], "overtime", ["month", "year"]);
+  seg(["#sort-ms", "#sort-plays"], "sortBy", ["ms", "plays"]);
+  $("#top-n").addEventListener("change", (e) => { state.topN = +e.target.value; renderTop(); });
+
+  const pick = (e) => {
+    const btn = e.target.closest("[data-artist]");
+    if (!btn) return;
+    selectArtist(btn.dataset.artist, true);
+  };
+  $("#top-artists").addEventListener("click", pick);
+  $("#top-songs").addEventListener("click", pick);
+
+  $("#artist-search").addEventListener("input", (e) => {
+    const match = agg.allArtistNames.get(e.target.value.trim().toLowerCase());
+    if (match) selectArtist(match, false);
+  });
+
+  // redraw canvas charts when the theme changes
+  matchMedia("(prefers-color-scheme: dark)").addEventListener("change", renderCharts);
+  new MutationObserver(renderCharts).observe(document.documentElement, { attributes: true, attributeFilter: ["data-theme"] });
+}
+
+function inRange(m) { return m >= state.start && m <= state.end; }
+
+// ---------- aggregation for the current range ----------
+function aggregate() {
+  const days = dayRows.filter(([d]) => inRange(d.slice(0, 7)));
+  const totalMs = days.reduce((s, [, ms]) => s + ms, 0);
+
+  const artists = new Map(), songs = new Map(), artistMonths = new Map();
+  let plays = 0;
+  for (const [artist, title, month, p, ms] of D.tracks) {
+    if (!inRange(month)) continue;
+    plays += p;
+    const a = artists.get(artist) || { name: artist, ms: 0, plays: 0, songs: 0 };
+    a.ms += ms; a.plays += p;
+    artists.set(artist, a);
+    const key = artist + "\u0000" + title;
+    let s = songs.get(key);
+    if (!s) { s = { artist, title, ms: 0, plays: 0 }; songs.set(key, s); a.songs++; }
+    s.ms += ms; s.plays += p;
+    if (!artistMonths.has(artist)) artistMonths.set(artist, new Map());
+    const am = artistMonths.get(artist);
+    am.set(month, (am.get(month) || 0) + ms);
+  }
+
+  // the search covers every artist in the full history, not just the range
+  const allArtistNames = new Map();
+  if (!agg) {
+    const totals = new Map();
+    for (const [artist, , , , ms] of D.tracks) totals.set(artist, (totals.get(artist) || 0) + ms);
+    [...totals.entries()].sort((a, b) => b[1] - a[1]).forEach(([n]) => allArtistNames.set(n.toLowerCase(), n));
+    $("#artist-list").innerHTML = [...allArtistNames.values()].map((n) => `<option value="${esc(n)}"></option>`).join("");
+  }
+
+  return {
+    days, totalMs, plays, artists, songs, artistMonths,
+    allArtistNames: agg ? agg.allArtistNames : allArtistNames,
+  };
+}
+
+function ranked(items) {
+  const k = state.sortBy, other = k === "ms" ? "plays" : "ms";
+  return [...items].sort((a, b) => b[k] - a[k] || b[other] - a[other]);
+}
+
+// ---------- render ----------
+function update() {
+  $("#start-month").value = state.start;
+  $("#end-month").value = state.end;
+  document.querySelectorAll("#presets .chip").forEach((c) => {
+    const k = c.dataset.preset;
+    let on = false;
+    if (k === "all") on = state.start === months[0] && state.end === months[months.length - 1];
+    else if (k === "last12") on = state.end === months[months.length - 1] && state.start === months[Math.max(0, months.length - 12)];
+    else { const inYear = months.filter((m) => m.startsWith(k)); on = state.start === inYear[0] && state.end === inYear[inYear.length - 1]; }
+    c.setAttribute("aria-pressed", String(on));
+  });
+
+  agg = aggregate();
+  if (!state.artist || !agg.artists.has(state.artist)) {
+    state.artist = ranked(agg.artists.values())[0]?.name || null;
+  }
+  renderTiles();
+  renderOvertime();
+  renderTop();
+  renderHeat();
+  renderArtist();
+}
+
+function renderCharts() { renderOvertime(); renderArtist(); }
+
+function renderTiles() {
+  const n = agg.days.length || 1;
+  const tiles = [
+    ["Listening time", fmtHours(agg.totalMs), `${nf.format(Math.round(agg.totalMs / 86400000))} full days`],
+    ["Average per day", fmtDuration(agg.totalMs / n), `over ${nf.format(n)} days`],
+    ["Plays", nf.format(agg.plays), "30 seconds or longer"],
+    ["Artists", nf.format(agg.artists.size), "with at least one listen"],
+    ["Songs", nf.format(agg.songs.size), "different songs"],
+  ];
+  $("#tiles").innerHTML = tiles.map(([l, v, note]) =>
+    `<div class="tile"><div class="label">${l}</div><div class="value">${v}</div><div class="note">${note}</div></div>`).join("");
+}
+
+function baseChartOptions(yTitle) {
+  const ink = cssVar("--ink"), muted = cssVar("--muted"), line = cssVar("--line");
+  return {
+    responsive: true,
+    maintainAspectRatio: false,
+    animation: matchMedia("(prefers-reduced-motion: reduce)").matches ? false : { duration: 250 },
+    interaction: { mode: "index", intersect: false },
+    plugins: {
+      legend: { display: false },
+      tooltip: {
+        backgroundColor: cssVar("--surface"), titleColor: ink, bodyColor: ink,
+        borderColor: line, borderWidth: 1, padding: 10, displayColors: false,
+        titleFont: { family: cssVar("--font-body"), weight: "600" },
+        bodyFont: { family: cssVar("--font-data") },
+      },
+    },
+    scales: {
+      x: { grid: { display: false }, border: { color: line }, ticks: { color: muted, maxRotation: 0, autoSkipPadding: 12 } },
+      y: {
+        beginAtZero: true, grid: { color: line }, border: { display: false },
+        ticks: { color: muted, maxTicksLimit: 6 },
+        title: { display: true, text: yTitle, color: muted },
+      },
+    },
+  };
+}
+
+function renderOvertime() {
+  const groups = new Map();
+  for (const [d, ms] of agg.days) {
+    const key = state.overtime === "month" ? d.slice(0, 7) : d.slice(0, 4);
+    const g = groups.get(key) || { ms: 0, days: 0 };
+    g.ms += ms; g.days++;
+    groups.set(key, g);
+  }
+  const keys = [...groups.keys()];
+  const values = keys.map((k) => groups.get(k).ms / groups.get(k).days / 60000);
+  const labels = keys.map((k) => (state.overtime === "month" ? monthLabel(k) : k));
+
+  const opts = baseChartOptions("minutes per day");
+  opts.plugins.tooltip.callbacks = {
+    title: (items) => (state.overtime === "month" ? monthLabel(keys[items[0].dataIndex], true) : keys[items[0].dataIndex]),
+    label: (item) => {
+      const g = groups.get(keys[item.dataIndex]);
+      return [`${fmtDuration(g.ms / g.days)} per day`, `${fmtDuration(g.ms)} total`];
+    },
+  };
+  opts.interaction = { mode: "index", intersect: false };
+
+  charts.overtime?.destroy();
+  charts.overtime = new Chart($("#overtime-chart"), {
+    type: "bar",
+    data: {
+      labels,
+      datasets: [{
+        data: values,
+        backgroundColor: cssVar("--accent"),
+        hoverBackgroundColor: cssVar("--heat-hi"),
+        borderRadius: { topLeft: 4, topRight: 4 },
+        borderSkipped: "bottom",
+        maxBarThickness: 48,
+        categoryPercentage: 0.9,
+        barPercentage: 0.9,
+      }],
+    },
+    options: opts,
+  });
+}
+
+function barRows(items, max, render) {
+  return items.map((it, i) => {
+    const pct = max ? (it[state.sortBy] / max) * 100 : 0;
+    return render(it, i, pct);
+  }).join("");
+}
+
+function valueText(it) {
+  return state.sortBy === "ms"
+    ? `${fmtDuration(it.ms)} · ${nf.format(it.plays)} plays`
+    : `${nf.format(it.plays)} plays · ${fmtDuration(it.ms)}`;
+}
+
+function renderTop() {
+  const artists = ranked(agg.artists.values()).slice(0, state.topN);
+  const songs = ranked(agg.songs.values()).slice(0, state.topN);
+  const aMax = artists[0]?.[state.sortBy] || 0, sMax = songs[0]?.[state.sortBy] || 0;
+
+  $("#top-artists").innerHTML = artists.length ? barRows(artists, aMax, (a, i, pct) => `
+    <li><button type="button" class="row" data-artist="${esc(a.name)}" aria-label="${esc(a.name)}, ${esc(valueText(a))}">
+      <span class="rank">${i + 1}</span>
+      <span class="name">${esc(a.name)}</span>
+      <span class="val">${valueText(a)}</span>
+      <span></span><span class="bar"><i style="width:${pct}%"></i></span>
+    </button></li>`) : '<li class="empty">No listening in this range.</li>';
+
+  $("#top-songs").innerHTML = songs.length ? barRows(songs, sMax, (s, i, pct) => `
+    <li><button type="button" class="row" data-artist="${esc(s.artist)}" title="Show ${esc(s.artist)}">
+      <span class="rank">${i + 1}</span>
+      <span class="name">${esc(s.title)} <small>${esc(s.artist)}</small></span>
+      <span class="val">${valueText(s)}</span>
+      <span></span><span class="bar"><i style="width:${pct}%"></i></span>
+    </button></li>`) : '<li class="empty">No listening in this range.</li>';
+}
+
+function renderHeat() {
+  // how many of each weekday the range covers, so each cell is a per-day average
+  const weekdayCount = new Array(7).fill(0);
+  for (const [d] of agg.days) {
+    const [y, m, day] = d.split("-").map(Number);
+    weekdayCount[(new Date(y, m - 1, day).getDay() + 6) % 7]++;
+  }
+  const grid = Array.from({ length: 7 }, () => new Array(24).fill(0));
+  for (const [month, wd, hour, ms] of D.habits) if (inRange(month)) grid[wd][hour] += ms;
+  const avg = grid.map((row, wd) => row.map((ms) => (weekdayCount[wd] ? ms / weekdayCount[wd] / 60000 : 0)));
+  const max = Math.max(...avg.flat(), 0.001);
+
+  let html = '<span></span>';
+  for (let h = 0; h < 24; h++) html += `<span class="hl">${h % 3 === 0 ? hourLabel(h).replace(" ", "").toLowerCase() : ""}</span>`;
+  avg.forEach((row, wd) => {
+    html += `<span class="dl">${WEEKDAYS[wd]}</span>`;
+    row.forEach((v, h) => {
+      const pct = Math.round(Math.sqrt(v / max) * 100);
+      const label = `${WEEKDAYS_LONG[wd]}s, ${hourLabel(h)}: ${v.toFixed(1)} min on average`;
+      html += `<span class="cell" role="gridcell" tabindex="-1" data-label="${label}" aria-label="${label}"
+        style="background: color-mix(in oklab, var(--heat-hi) ${pct}%, var(--accent-soft))"></span>`;
+    });
+  });
+  const heat = $("#heat");
+  heat.innerHTML = html;
+  heat.onmouseover = (e) => { const c = e.target.closest(".cell"); if (c) $("#heat-readout").textContent = c.dataset.label; };
+  heat.onmouseleave = () => { $("#heat-readout").textContent = "Hover over a square to see its average."; };
+  $("#heat-max").textContent = `${max.toFixed(0)} min`;
+}
+
+function selectArtist(name, scroll) {
+  state.artist = name;
+  $("#artist-search").value = name;
+  renderArtist();
+  if (scroll) $("#drill").scrollIntoView({ behavior: matchMedia("(prefers-reduced-motion: reduce)").matches ? "auto" : "smooth", block: "start" });
+}
+
+function renderArtist() {
+  const body = $("#artist-body");
+  const name = state.artist;
+  charts.artist?.destroy();
+  charts.artist = null;
+  if (!name) { body.innerHTML = '<p class="empty">Search for an artist to see their songs and listening history.</p>'; return; }
+
+  const a = agg.artists.get(name);
+  if (!a) {
+    body.innerHTML = `<p class="artist-name">${esc(name)}</p><p class="empty">You didn't listen to ${esc(name)} in this date range. Try All time.</p>`;
+    return;
+  }
+  const rank = ranked(agg.artists.values()).findIndex((x) => x.name === name) + 1;
+  const am = agg.artistMonths.get(name);
+  const rangeMonths = months.filter(inRange);
+  const firstMonth = rangeMonths.find((m) => am.get(m));
+  const songs = ranked([...agg.songs.values()].filter((s) => s.artist === name)).slice(0, 10);
+  const sMax = songs[0]?.[state.sortBy] || 0;
+
+  body.innerHTML = `
+    <p class="artist-name">${esc(name)}</p>
+    <div class="artist-stats">
+      <span><b>#${rank}</b> ${state.sortBy === "ms" ? "by time" : "by plays"}</span>
+      <span><b>${fmtDuration(a.ms)}</b> listened</span>
+      <span><b>${nf.format(a.plays)}</b> plays</span>
+      <span><b>${nf.format(a.songs)}</b> songs</span>
+      <span>First played in range: <b>${monthLabel(firstMonth, true)}</b></span>
+    </div>
+    <div class="pair">
+      <div style="min-width:0">
+        <h3>Hours per month</h3>
+        <div class="chart-box"><canvas id="artist-chart" role="img" aria-label="Monthly listening for ${esc(name)}"></canvas></div>
+      </div>
+      <div style="min-width:0">
+        <h3>Top songs</h3>
+        <ol class="bars">${barRows(songs, sMax, (s, i, pct) => `
+          <li class="row">
+            <span class="rank">${i + 1}</span>
+            <span class="name">${esc(s.title)}</span>
+            <span class="val">${valueText(s)}</span>
+            <span></span><span class="bar"><i style="width:${pct}%"></i></span>
+          </li>`)}</ol>
+      </div>
+    </div>`;
+
+  const accent = cssVar("--accent");
+  const opts = baseChartOptions("hours");
+  opts.plugins.tooltip.callbacks = {
+    title: (items) => monthLabel(rangeMonths[items[0].dataIndex], true),
+    label: (item) => fmtDuration((am.get(rangeMonths[item.dataIndex]) || 0)),
+  };
+  charts.artist = new Chart($("#artist-chart"), {
+    type: "line",
+    data: {
+      labels: rangeMonths.map((m) => monthLabel(m)),
+      datasets: [{
+        data: rangeMonths.map((m) => (am.get(m) || 0) / 3600000),
+        borderColor: accent,
+        backgroundColor: accent + "26",
+        fill: "origin",
+        borderWidth: 2,
+        tension: 0.25,
+        pointRadius: 0,
+        pointHoverRadius: 5,
+        pointHoverBackgroundColor: accent,
+        pointHoverBorderColor: cssVar("--surface"),
+        pointHoverBorderWidth: 2,
+      }],
+    },
+    options: opts,
+  });
+}
+</script>
+</body>
+</html>
