@@ -2,7 +2,7 @@
 
 An interactive dashboard of three years of my Spotify listening history, from August 2023 to September 2026.
 
-**Live site:** _coming soon_
+**Live site:** https://kadenabuan.github.io/music-analysis/
 
 ## What it shows
 

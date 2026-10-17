@@ -221,6 +221,7 @@ h3 { font-size: 13px; text-transform: uppercase; letter-spacing: 0.06em; color: 
 footer { color: var(--muted); font-size: 14px; max-width: 70ch; border-top: 1px solid var(--line); padding-top: 20px; }
 footer p { margin: 8px 0 0; }
 .about-title { font-size: 17px; color: var(--ink); }
+footer a { color: var(--accent); }
 .error { padding: 40px 0; }
 
 @media (max-width: 520px) {
@@ -340,7 +341,7 @@ footer p { margin: 8px 0 0; }
 
   <footer>
     <h2 class="about-title">About this project</h2>
-    <p>I built this from my Spotify Extended Streaming History export. A Python script (<code>build-dashboard.py</code>) reads the raw files, converts every timestamp to local time, and boils the data down to totals by song and month, so no individual plays, IP addresses or devices are published. A play counts once it reaches 30 seconds, the same rule Spotify uses. Charts are drawn with Chart.js.</p>
+    <p>I built this from my Spotify Extended Streaming History export. A Python script (<code>build-dashboard.py</code>) reads the raw files, converts every timestamp to local time, and boils the data down to totals by song and month, so no individual plays, IP addresses or devices are published. A play counts once it reaches 30 seconds, the same rule Spotify uses. Charts are drawn with Chart.js. The code is on <a href="https://github.com/kadenabuan/music-analysis">GitHub</a>.</p>
     <p id="footer"></p>
   </footer>
 </main>
