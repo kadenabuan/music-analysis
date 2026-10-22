@@ -487,16 +487,35 @@ const GENRE_COLORS = ["--cat-1", "--cat-2", "--cat-3", "--cat-4", "--cat-5", "--
 let agg = null;
 const charts = {};
 
-fetch("data.json")
-  .then((r) => { if (!r.ok) throw new Error(r.status); return r.json(); })
-  .then(init)
-  .catch(() => {
-    $("#subtitle").textContent = "";
-    $("#app").innerHTML = '<p class="error">The listening data didn’t load. Rebuild it with <code>python3 build-dashboard.py</code> and republish the page.</p>';
+function showError(message) {
+  $("#subtitle").textContent = "";
+  $("#app").innerHTML = `<p class="error">${message}</p>`;
+}
+
+// "no-cache" makes the browser check for a newer data.json instead of reusing a stale copy
+fetch("data.json", { cache: "no-cache" })
+  .then((r) => { if (!r.ok) throw new Error(`HTTP ${r.status}`); return r.json(); })
+  .catch((err) => {
+    console.error(err);
+    showError(location.protocol === "file:"
+      ? "Open this page through a local server (<code>python3 -m http.server -d dashboard</code>), not straight from the file."
+      : "The listening data couldn’t be downloaded. Check your connection and reload the page.");
+    return null;
+  })
+  .then((data) => {
+    if (!data) return;
+    try {
+      init(data);
+    } catch (err) {
+      console.error(err);
+      showError("Something went wrong drawing the charts. Reload the page with Cmd+Shift+R (Ctrl+Shift+R on Windows) to make sure you have the latest version.");
+    }
   });
 
 function init(data) {
   D = data;
+  // older data files lack the playlist-based sections; treat those as empty
+  for (const key of ["moods", "mood_hours", "sound", "genres", "eras", "new_releases"]) D[key] = D[key] || [];
   dayRows = Object.entries(D.daily).sort((a, b) => (a[0] < b[0] ? -1 : 1));
   months = [...new Set(dayRows.map(([d]) => d.slice(0, 7)))];
   years = [...new Set(months.map((m) => m.slice(0, 4)))];
