@@ -26,6 +26,9 @@ img { max-width: 100%; }
   --accent: #2a78d6;
   --accent-soft: #e3eefb;
   --heat-hi: #1c5cab;
+  /* moods and genres: dataviz reference categorical slots, in fixed order */
+  --cat-1: #2a78d6; --cat-2: #eb6834; --cat-3: #1baf7a; --cat-4: #eda100; --cat-5: #e87ba4; --cat-6: #008300;
+  --cat-other: #c9cfd6;
   --font-display: "Bricolage Grotesque", "Avenir Next", system-ui, sans-serif;
   --font-body: "IBM Plex Sans", system-ui, -apple-system, "Segoe UI", sans-serif;
   --font-data: "IBM Plex Mono", ui-monospace, "SF Mono", Menlo, monospace;
@@ -35,11 +38,15 @@ img { max-width: 100%; }
   :root:not([data-theme="light"]) {
     --bg: #0e1115; --surface: #161a20; --ink: #edf0f3; --muted: #9aa4b0; --line: #262d36;
     --accent: #3987e5; --accent-soft: #1a2738; --heat-hi: #6da7ec; color-scheme: dark;
+    --cat-1: #3987e5; --cat-2: #d95926; --cat-3: #199e70; --cat-4: #c98500; --cat-5: #d55181; --cat-6: #008300;
+    --cat-other: #46505c;
   }
 }
 :root[data-theme="dark"] {
   --bg: #0e1115; --surface: #161a20; --ink: #edf0f3; --muted: #9aa4b0; --line: #262d36;
   --accent: #3987e5; --accent-soft: #1a2738; --heat-hi: #6da7ec; color-scheme: dark;
+    --cat-1: #3987e5; --cat-2: #d95926; --cat-3: #199e70; --cat-4: #c98500; --cat-5: #d55181; --cat-6: #008300;
+    --cat-other: #46505c;
 }
 
 body {
@@ -180,6 +187,23 @@ button.row:hover { background: var(--accent-soft); }
 .row .bar i { display: block; height: 100%; background: var(--accent); border-radius: 3px; }
 
 .heat-scroll { overflow-x: auto; }
+
+.legend { display: flex; flex-wrap: wrap; gap: 6px 18px; font-size: 13px; color: var(--muted); margin: 0 0 12px; padding: 0; list-style: none; }
+.legend li { display: flex; align-items: baseline; gap: 6px; }
+.legend b { color: var(--ink); font-weight: 600; }
+.swatch { width: 10px; height: 10px; border-radius: 3px; flex: none; align-self: center; }
+.coverage { font-size: 12px; color: var(--muted); margin: 10px 0 0; }
+.mini-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 20px 24px; }
+@media (max-width: 620px) { .mini-grid { grid-template-columns: 1fr; } }
+.mini .chart-box { height: 150px; }
+.mini-head { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; }
+.mini-head .big { font-family: var(--font-display); font-weight: 700; font-size: 22px; font-variant-numeric: tabular-nums; }
+.mini-head span { color: var(--muted); font-size: 13px; }
+.stat-row { display: flex; flex-wrap: wrap; gap: 8px 32px; margin: 0 0 14px; }
+.stat-row div { display: grid; }
+.stat-row .big { font-family: var(--font-display); font-weight: 700; font-size: 24px; font-variant-numeric: tabular-nums; }
+.stat-row span { color: var(--muted); font-size: 13px; }
+.row.static { cursor: default; }
 .heat {
   display: grid;
   grid-template-columns: 2.6em repeat(24, minmax(18px, 1fr));
@@ -259,12 +283,56 @@ footer a { color: var(--accent); }
         <h2>Listening over time</h2>
         <p id="overtime-note">Average listening per calendar day, days with no listening included.</p>
       </div>
-      <div class="seg" role="group" aria-label="Group by">
-        <button type="button" id="ot-month" aria-pressed="true">By month</button>
-        <button type="button" id="ot-year" aria-pressed="false">By year</button>
+      <div class="controls">
+        <div class="seg" role="group" aria-label="Show">
+          <button type="button" id="ot-time" aria-pressed="true">Time</button>
+          <button type="button" id="ot-mood" aria-pressed="false">Mood</button>
+        </div>
+        <div class="seg" role="group" aria-label="Group by">
+          <button type="button" id="ot-month" aria-pressed="true">By month</button>
+          <button type="button" id="ot-year" aria-pressed="false">By year</button>
+        </div>
       </div>
     </div>
+    <ul class="legend" id="mood-legend" hidden></ul>
     <div class="chart-box"><canvas id="overtime-chart" aria-label="Average daily listening chart" role="img"></canvas></div>
+    <p class="coverage" id="overtime-coverage" hidden></p>
+  </section>
+
+  <div class="pair">
+    <section class="panel" id="moodmap">
+      <div class="panel-head">
+        <div>
+          <h2>Mood map</h2>
+          <p>Each dot is a month, placed by how intense and how positive the music was and colored by its main mood. The outlined dot is the latest month.</p>
+        </div>
+      </div>
+      <ul class="legend" data-mood-legend></ul>
+      <div class="chart-box"><canvas id="moodmap-chart" role="img" aria-label="Monthly mood map"></canvas></div>
+      <p class="coverage" data-coverage></p>
+    </section>
+    <section class="panel" id="moodhours">
+      <div class="panel-head">
+        <div>
+          <h2>Mood by time of day</h2>
+          <p>The mix of moods in each hour of the day, in your local time.</p>
+        </div>
+      </div>
+      <ul class="legend" data-mood-legend></ul>
+      <div class="chart-box"><canvas id="moodhours-chart" role="img" aria-label="Mood share by hour of day"></canvas></div>
+      <p class="coverage" data-coverage></p>
+    </section>
+  </div>
+
+  <section class="panel" id="sound">
+    <div class="panel-head">
+      <div>
+        <h2>How the music sounded</h2>
+        <p>Monthly averages, weighted by listening time. The number is the average for the selected range.</p>
+      </div>
+    </div>
+    <div class="mini-grid" id="sound-grid"></div>
+    <p class="coverage" data-coverage></p>
   </section>
 
   <section class="rank-bar">
@@ -310,6 +378,41 @@ footer a { color: var(--accent); }
   </div>
 
 
+  <div class="pair">
+    <section class="panel" id="genres">
+      <div class="panel-head">
+        <div>
+          <h2>Top genres</h2>
+          <p>Hours listened. A song with several genres splits its time between them.</p>
+        </div>
+      </div>
+      <ol class="bars" id="genre-list"></ol>
+    </section>
+    <section class="panel" id="genre-time">
+      <div class="panel-head">
+        <div>
+          <h2>Genres over time</h2>
+          <p>Share of each month's listening for the top six genres in this range.</p>
+        </div>
+      </div>
+      <ul class="legend" id="genre-legend"></ul>
+      <div class="chart-box"><canvas id="genre-chart" role="img" aria-label="Genre share by month"></canvas></div>
+      <p class="coverage" data-coverage></p>
+    </section>
+  </div>
+
+  <section class="panel" id="era">
+    <div class="panel-head">
+      <div>
+        <h2>Song era</h2>
+        <p>Hours listened, by the year each song came out.</p>
+      </div>
+    </div>
+    <div class="stat-row" id="era-stats"></div>
+    <div class="chart-box"><canvas id="era-chart" role="img" aria-label="Listening by release year"></canvas></div>
+    <p class="coverage" data-coverage></p>
+  </section>
+
   <section class="panel" id="habits">
     <div class="panel-head">
       <div>
@@ -341,7 +444,7 @@ footer a { color: var(--accent); }
 
   <footer>
     <h2 class="about-title">About this project</h2>
-    <p>I built this from my Spotify Extended Streaming History export. A Python script (<code>build-dashboard.py</code>) reads the raw files, converts every timestamp to local time, and boils the data down to totals by song and month, so no individual plays, IP addresses or devices are published. A play counts once it reaches 30 seconds, the same rule Spotify uses. Charts are drawn with Chart.js. The code is on <a href="https://github.com/kadenabuan/music-analysis">GitHub</a>.</p>
+    <p>I built this from my Spotify Extended Streaming History export. A Python script (<code>build-dashboard.py</code>) reads the raw files, converts every timestamp to local time, and boils the data down to totals by song and month, so no individual plays, IP addresses or devices are published. A play counts once it reaches 30 seconds, the same rule Spotify uses. Genres, release dates and sound details (energy, positivity, tempo, loudness) come from exports of my playlists. Each song gets a mood from two scores: intensity, which mixes energy, tempo and loudness, and positivity. Fast, loud songs score as Hyped or Intense, and slower, softer ones as Chill or Moody, depending on how positive they sound. Charts are drawn with Chart.js. The code is on <a href="https://github.com/kadenabuan/music-analysis">GitHub</a>.</p>
     <p id="footer"></p>
   </footer>
 </main>
@@ -372,7 +475,15 @@ function cssVar(name) { return getComputedStyle(document.documentElement).getPro
 
 // ---------- state ----------
 let D, months, years, dayRows;
-const state = { start: null, end: null, sortBy: "ms", topN: 20, overtime: "month", artist: null };
+const state = { start: null, end: null, sortBy: "ms", topN: 20, overtime: "month", otMode: "time", artist: null };
+// moods stack bottom to top: positive moods first, then darker ones
+const MOODS = [
+  { name: "Chill", color: "--cat-1", desc: "slow or soft, positive" },
+  { name: "Hyped", color: "--cat-2", desc: "fast or loud, positive" },
+  { name: "Moody", color: "--cat-3", desc: "slow or soft, darker" },
+  { name: "Intense", color: "--cat-4", desc: "fast or loud, darker" },
+];
+const GENRE_COLORS = ["--cat-1", "--cat-2", "--cat-3", "--cat-4", "--cat-5", "--cat-6"];
 let agg = null;
 const charts = {};
 
@@ -434,9 +545,15 @@ function bindControls() {
   const seg = (ids, key, values) => ids.forEach((id, i) => $(id).addEventListener("click", () => {
     state[key] = values[i];
     ids.forEach((other, j) => $(other).setAttribute("aria-pressed", String(i === j)));
-    key === "overtime" ? renderOvertime() : (renderTop(), renderArtist());
+    key === "overtime" || key === "otMode" ? renderOvertime() : (renderTop(), renderArtist());
   }));
   seg(["#ot-month", "#ot-year"], "overtime", ["month", "year"]);
+  seg(["#ot-time", "#ot-mood"], "otMode", ["time", "mood"]);
+  const moodItems = MOODS.map((m) =>
+    `<li><span class="swatch" style="background:var(${m.color})"></span><span><b>${m.name}</b> ${m.desc}</span></li>`).join("");
+  document.querySelectorAll("[data-mood-legend]").forEach((el) => (el.innerHTML = moodItems));
+  $("#mood-legend").innerHTML = moodItems +
+    '<li><span class="swatch" style="background:var(--cat-other)"></span><span><b>Unknown</b> song isn\u2019t in a playlist</span></li>';
   seg(["#sort-ms", "#sort-plays"], "sortBy", ["ms", "plays"]);
   $("#top-n").addEventListener("change", (e) => { state.topN = +e.target.value; renderTop(); });
 
@@ -491,8 +608,46 @@ function aggregate() {
     $("#artist-list").innerHTML = [...allArtistNames.values()].map((n) => `<option value="${esc(n)}"></option>`).join("");
   }
 
+  // playlist-based summaries: moods, sound, genres, release years
+  const moodMonths = new Map(), moodHours = Array.from({ length: 24 }, () => ({}));
+  for (const [month, mood, ms] of D.moods) {
+    if (!inRange(month)) continue;
+    const m = moodMonths.get(month) || {};
+    m[mood] = (m[mood] || 0) + ms;
+    moodMonths.set(month, m);
+  }
+  for (const [month, hour, mood, ms] of D.mood_hours) {
+    if (inRange(month)) moodHours[hour][mood] = (moodHours[hour][mood] || 0) + ms;
+  }
+  const sound = new Map(), soundTotal = [0, 0, 0, 0, 0, 0, 0];
+  for (const [month, ...sums] of D.sound) {
+    if (!inRange(month)) continue;
+    sound.set(month, sums);
+    sums.forEach((v, i) => (soundTotal[i] += v));
+  }
+  const genres = new Map(), genreMonths = new Map();
+  let genreMs = 0;
+  for (const [month, genre, ms] of D.genres) {
+    if (!inRange(month)) continue;
+    genres.set(genre, (genres.get(genre) || 0) + ms);
+    genreMs += ms;
+    if (!genreMonths.has(month)) genreMonths.set(month, new Map());
+    const gm = genreMonths.get(month);
+    gm.set(genre, (gm.get(genre) || 0) + ms);
+  }
+  const eras = new Map();
+  let eraMs = 0, newReleaseMs = 0;
+  for (const [month, year, ms] of D.eras) {
+    if (!inRange(month)) continue;
+    eras.set(year, (eras.get(year) || 0) + ms);
+    eraMs += ms;
+  }
+  for (const [month, ms] of D.new_releases) if (inRange(month)) newReleaseMs += ms;
+
   return {
     days, totalMs, plays, artists, songs, artistMonths,
+    moodMonths, moodHours, sound, soundTotal, coveredMs: soundTotal[0],
+    genres, genreMonths, genreMs, eras, eraMs, newReleaseMs,
     allArtistNames: agg ? agg.allArtistNames : allArtistNames,
   };
 }
@@ -522,11 +677,19 @@ function update() {
   renderTiles();
   renderOvertime();
   renderTop();
+  renderMoodMap();
+  renderMoodHours();
+  renderSound();
+  renderGenres();
+  renderEra();
+  renderCoverage();
   renderHeat();
   renderArtist();
 }
 
-function renderCharts() { renderOvertime(); renderArtist(); }
+function renderCharts() {
+  renderOvertime(); renderMoodMap(); renderMoodHours(); renderSound(); renderGenres(); renderEra(); renderArtist();
+}
 
 function renderTiles() {
   const n = agg.days.length || 1;
@@ -579,6 +742,10 @@ function renderOvertime() {
   const keys = [...groups.keys()];
   const values = keys.map((k) => groups.get(k).ms / groups.get(k).days / 60000);
   const labels = keys.map((k) => (state.overtime === "month" ? monthLabel(k) : k));
+  const moodMode = state.otMode === "mood";
+  $("#mood-legend").hidden = !moodMode;
+  $("#overtime-coverage").hidden = !moodMode;
+  if (moodMode) return renderOvertimeMoods(groups, keys, labels);
 
   const opts = baseChartOptions("minutes per day");
   opts.plugins.tooltip.callbacks = {
@@ -604,6 +771,295 @@ function renderOvertime() {
         maxBarThickness: 48,
         categoryPercentage: 0.9,
         barPercentage: 0.9,
+      }],
+    },
+    options: opts,
+  });
+}
+
+function stackedBarDataset(label, data, colorVar) {
+  return {
+    label, data,
+    backgroundColor: cssVar(colorVar),
+    borderColor: cssVar("--surface"),
+    borderWidth: { top: 1.5 },
+    borderSkipped: "bottom",
+    maxBarThickness: 48,
+    categoryPercentage: 0.9,
+    barPercentage: 0.9,
+  };
+}
+
+function stackedOptions(yTitle, max) {
+  const opts = baseChartOptions(yTitle);
+  opts.scales.x.stacked = true;
+  opts.scales.y.stacked = true;
+  if (max) opts.scales.y.max = max;
+  opts.plugins.tooltip.displayColors = true;
+  opts.plugins.tooltip.boxPadding = 4;
+  return opts;
+}
+
+function renderOvertimeMoods(groups, keys, labels) {
+  // mood minutes per day for each month or year; time from songs without playlist data shows as Unknown
+  const byKey = new Map(keys.map((k) => [k, {}]));
+  for (const [month, m] of agg.moodMonths) {
+    const k = state.overtime === "month" ? month : month.slice(0, 4);
+    const target = byKey.get(k);
+    if (target) for (const [mood, ms] of Object.entries(m)) target[mood] = (target[mood] || 0) + ms;
+  }
+  const perDay = (k, ms) => ms / groups.get(k).days / 60000;
+  const datasets = MOODS.map((m) => stackedBarDataset(m.name, keys.map((k) => perDay(k, byKey.get(k)[m.name] || 0)), m.color));
+  datasets.push(stackedBarDataset("Unknown", keys.map((k) => {
+    const known = Object.values(byKey.get(k)).reduce((a, b) => a + b, 0);
+    return perDay(k, Math.max(0, groups.get(k).ms - known));
+  }), "--cat-other"));
+
+  const opts = stackedOptions("minutes per day");
+  opts.plugins.tooltip.callbacks = {
+    title: (items) => (state.overtime === "month" ? monthLabel(keys[items[0].dataIndex], true) : keys[items[0].dataIndex]),
+    label: (item) => {
+      const g = groups.get(keys[item.dataIndex]);
+      const share = g.ms ? (item.raw * 60000 * g.days) / g.ms : 0;
+      return `${item.dataset.label}: ${fmtDuration(item.raw * 60000)} per day (${Math.round(share * 100)}%)`;
+    },
+  };
+  charts.overtime?.destroy();
+  charts.overtime = new Chart($("#overtime-chart"), { type: "bar", data: { labels, datasets }, options: opts });
+}
+
+function moodShares(m) {
+  const total = Object.values(m || {}).reduce((a, b) => a + b, 0);
+  return { total, top: MOODS.map((x) => x.name).sort((a, b) => (m[b] || 0) - (m[a] || 0))[0] };
+}
+
+function renderCoverage() {
+  const pct = agg.totalMs ? Math.round((agg.coveredMs / agg.totalMs) * 100) : 0;
+  const text = `Based on ${pct}% of your listening time in this range: the songs that appear in your playlists.`;
+  document.querySelectorAll("[data-coverage]").forEach((el) => (el.textContent = text));
+  $("#overtime-coverage").textContent = `Unknown is listening to songs that aren't in any of your playlists. Moods cover ${pct}% of this range.`;
+}
+
+// a dot per month: x = average positivity, y = average intensity
+const quadrantPlugin = {
+  id: "quadrants",
+  beforeDatasetsDraw(chart) {
+    const { ctx, chartArea: a, scales: { x, y } } = chart;
+    const cx = x.getPixelForValue(0.5), cy = y.getPixelForValue(0.5);
+    ctx.save();
+    ctx.strokeStyle = cssVar("--muted");
+    ctx.globalAlpha = 0.5;
+    ctx.setLineDash([4, 4]);
+    ctx.beginPath();
+    if (cx > a.left && cx < a.right) { ctx.moveTo(cx, a.top); ctx.lineTo(cx, a.bottom); }
+    if (cy > a.top && cy < a.bottom) { ctx.moveTo(a.left, cy); ctx.lineTo(a.right, cy); }
+    ctx.stroke();
+    ctx.globalAlpha = 1;
+    ctx.fillStyle = cssVar("--muted");
+    ctx.font = `600 12px ${cssVar("--font-body")}`;
+    const pad = 8;
+    const corner = (text, left, top) => {
+      ctx.textAlign = left ? "left" : "right";
+      ctx.textBaseline = top ? "top" : "bottom";
+      ctx.fillText(text.toUpperCase(), left ? a.left + pad : a.right - pad, top ? a.top + pad : a.bottom - pad);
+    };
+    corner("Intense", true, true); corner("Hyped", false, true);
+    corner("Moody", true, false); corner("Chill", false, false);
+    ctx.restore();
+  },
+};
+
+function renderMoodMap() {
+  const monthsIn = [...agg.sound.keys()].sort();
+  const pts = monthsIn.map((m) => {
+    const [ms, , valence, , , intensity] = agg.sound.get(m);
+    return { x: valence / ms, y: intensity / ms, month: m, ms };
+  });
+  const moodColor = Object.fromEntries(MOODS.map((m) => [m.name, cssVar(m.color)]));
+  const tops = pts.map((p) => moodShares(agg.moodMonths.get(p.month)).top);
+  const ext = (k) => {
+    const vals = pts.map((p) => p[k]).concat(0.5);
+    const lo = Math.min(...vals), hi = Math.max(...vals), pad = Math.max(0.04, (hi - lo) * 0.12);
+    return [Math.max(0, lo - pad), Math.min(1, hi + pad)];
+  };
+  const [xMin, xMax] = ext("x"), [yMin, yMax] = ext("y");
+
+  const opts = baseChartOptions("intensity");
+  opts.interaction = { mode: "nearest", intersect: false };
+  opts.scales.x = {
+    type: "linear", min: xMin, max: xMax, grid: { color: cssVar("--line") }, border: { display: false },
+    ticks: { color: cssVar("--muted"), maxTicksLimit: 6, callback: (v) => Math.round(v * 100) },
+    title: { display: true, text: "positivity", color: cssVar("--muted") },
+  };
+  opts.scales.y.min = yMin; opts.scales.y.max = yMax; opts.scales.y.beginAtZero = false;
+  opts.scales.y.ticks.callback = (v) => Math.round(v * 100);
+  opts.plugins.tooltip.callbacks = {
+    title: (items) => monthLabel(pts[items[0].dataIndex].month, true),
+    label: (item) => {
+      const p = pts[item.dataIndex];
+      const m = agg.moodMonths.get(p.month) || {};
+      const { total, top } = moodShares(m);
+      const monthTotal = agg.days.filter(([d]) => d.startsWith(p.month)).reduce((s, [, ms]) => s + ms, 0);
+      return [
+        `Mostly ${top} (${Math.round(((m[top] || 0) / (total || 1)) * 100)}%)`,
+        `Positivity ${Math.round(p.x * 100)} · Intensity ${Math.round(p.y * 100)}`,
+        `Based on ${Math.round((p.ms / (monthTotal || 1)) * 100)}% of the month's listening`,
+      ];
+    },
+  };
+  const last = pts.length - 1;
+  charts.moodmap?.destroy();
+  charts.moodmap = new Chart($("#moodmap-chart"), {
+    type: "scatter",
+    data: {
+      datasets: [{
+        data: pts,
+        showLine: true,
+        borderColor: cssVar("--muted") + "40",
+        borderWidth: 1,
+        pointRadius: pts.map((_, i) => (i === last ? 8 : 5)),
+        pointHoverRadius: pts.map((_, i) => (i === last ? 10 : 7)),
+        pointBackgroundColor: tops.map((t) => moodColor[t]),
+        pointBorderColor: pts.map((_, i) => (i === last ? cssVar("--ink") : cssVar("--surface"))),
+        pointBorderWidth: pts.map((_, i) => (i === last ? 2.5 : 1.5)),
+      }],
+    },
+    options: opts,
+    plugins: [quadrantPlugin],
+  });
+}
+
+function renderMoodHours() {
+  const hours = [...Array(24).keys()];
+  const totals = hours.map((h) => Object.values(agg.moodHours[h]).reduce((a, b) => a + b, 0));
+  const datasets = MOODS.map((m) => stackedBarDataset(m.name,
+    hours.map((h) => (totals[h] ? ((agg.moodHours[h][m.name] || 0) / totals[h]) * 100 : 0)), m.color));
+  const opts = stackedOptions("% of listening", 100);
+  opts.scales.x.ticks.callback = (v) => (v % 3 === 0 ? hourLabel(v).replace(" ", "").toLowerCase() : "");
+  opts.scales.x.ticks.autoSkip = false;
+  opts.plugins.tooltip.callbacks = {
+    title: (items) => `${hourLabel(+items[0].label)} · ${fmtDuration(totals[+items[0].label])} total`,
+    label: (item) => `${item.dataset.label}: ${Math.round(item.raw)}%`,
+  };
+  charts.moodhours?.destroy();
+  charts.moodhours = new Chart($("#moodhours-chart"), { type: "bar", data: { labels: hours, datasets }, options: opts });
+}
+
+const SOUND_MEASURES = [
+  { idx: 1, name: "Energy", note: "out of 100", scale: 100 },
+  { idx: 2, name: "Positivity", note: "out of 100", scale: 100 },
+  { idx: 3, name: "Danceability", note: "out of 100", scale: 100 },
+  { idx: 4, name: "Tempo", note: "BPM", scale: 1 },
+];
+
+function renderSound() {
+  const grid = $("#sound-grid");
+  if (!grid.children.length) {
+    grid.innerHTML = SOUND_MEASURES.map((m, i) => `
+      <div class="mini">
+        <div class="mini-head"><h3>${m.name}</h3><div><span class="big" id="sound-avg-${i}"></span> <span>${m.note}</span></div></div>
+        <div class="chart-box"><canvas id="sound-chart-${i}" role="img" aria-label="${m.name} by month"></canvas></div>
+      </div>`).join("");
+  }
+  const rangeMonths = months.filter(inRange);
+  const accent = cssVar("--accent");
+  SOUND_MEASURES.forEach((m, i) => {
+    const values = rangeMonths.map((mo) => {
+      const s = agg.sound.get(mo);
+      return s && s[0] ? (s[m.idx] / s[0]) * m.scale : null;
+    });
+    const avg = agg.soundTotal[0] ? (agg.soundTotal[m.idx] / agg.soundTotal[0]) * m.scale : 0;
+    $(`#sound-avg-${i}`).textContent = Math.round(avg);
+    const opts = baseChartOptions("");
+    opts.scales.y.title.display = false;
+    opts.scales.y.beginAtZero = false;
+    opts.scales.y.ticks.maxTicksLimit = 4;
+    opts.plugins.tooltip.callbacks = {
+      title: (items) => monthLabel(rangeMonths[items[0].dataIndex], true),
+      label: (item) => `${m.name}: ${Math.round(item.raw)}${m.scale === 1 ? " BPM" : ""}`,
+    };
+    charts[`sound${i}`]?.destroy();
+    charts[`sound${i}`] = new Chart($(`#sound-chart-${i}`), {
+      type: "line",
+      data: {
+        labels: rangeMonths.map((mo) => monthLabel(mo)),
+        datasets: [{
+          data: values, spanGaps: true,
+          borderColor: accent, backgroundColor: accent + "1f", fill: "start",
+          borderWidth: 2, tension: 0.25, pointRadius: 0, pointHoverRadius: 5,
+          pointHoverBackgroundColor: accent, pointHoverBorderColor: cssVar("--surface"), pointHoverBorderWidth: 2,
+        }],
+      },
+      options: opts,
+    });
+  });
+}
+
+function renderGenres() {
+  const top = [...agg.genres.entries()].sort((a, b) => b[1] - a[1]);
+  const list = top.slice(0, 12);
+  const max = list[0]?.[1] || 0;
+  $("#genre-list").innerHTML = list.length ? list.map(([g, ms], i) => `
+    <li class="row static">
+      <span class="rank">${i + 1}</span>
+      <span class="name">${esc(g)}</span>
+      <span class="val">${fmtHours(ms)} · ${Math.round((ms / (agg.genreMs || 1)) * 100)}%</span>
+      <span></span><span class="bar"><i style="width:${(ms / max) * 100}%"></i></span>
+    </li>`).join("") : '<li class="empty">No genre data in this range.</li>';
+
+  const six = top.slice(0, 6).map(([g]) => g);
+  $("#genre-legend").innerHTML = six.map((g, i) =>
+    `<li><span class="swatch" style="background:var(${GENRE_COLORS[i]})"></span><span>${esc(g)}</span></li>`).join("") +
+    '<li><span class="swatch" style="background:var(--cat-other)"></span><span>Other</span></li>';
+  const rangeMonths = months.filter((m) => inRange(m) && agg.genreMonths.has(m));
+  const share = (m, g) => {
+    const gm = agg.genreMonths.get(m);
+    const total = [...gm.values()].reduce((a, b) => a + b, 0);
+    return total ? ((gm.get(g) || 0) / total) * 100 : 0;
+  };
+  const datasets = six.map((g, i) => stackedBarDataset(g, rangeMonths.map((m) => share(m, g)), GENRE_COLORS[i]));
+  datasets.push(stackedBarDataset("Other", rangeMonths.map((m) => 100 - six.reduce((s, g) => s + share(m, g), 0)), "--cat-other"));
+  const opts = stackedOptions("% of listening", 100);
+  opts.plugins.tooltip.callbacks = {
+    title: (items) => monthLabel(rangeMonths[items[0].dataIndex], true),
+    label: (item) => `${item.dataset.label}: ${Math.round(item.raw)}%`,
+  };
+  charts.genres?.destroy();
+  charts.genres = new Chart($("#genre-chart"), {
+    type: "bar", data: { labels: rangeMonths.map((m) => monthLabel(m)), datasets }, options: opts,
+  });
+}
+
+function renderEra() {
+  const yearsIn = [...agg.eras.keys()].sort((a, b) => a - b);
+  const stats = $("#era-stats");
+  if (!yearsIn.length) { stats.innerHTML = ""; charts.era?.destroy(); charts.era = null; return; }
+  const span = [];
+  for (let y = yearsIn[0]; y <= yearsIn[yearsIn.length - 1]; y++) span.push(y);
+  // weighted median release year
+  let run = 0, median = yearsIn[0];
+  for (const y of yearsIn) { run += agg.eras.get(y); if (run >= agg.eraMs / 2) { median = y; break; } }
+  const before2010 = yearsIn.filter((y) => y < 2010).reduce((s, y) => s + agg.eras.get(y), 0);
+  stats.innerHTML = `
+    <div><span class="big">${Math.round((agg.newReleaseMs / (agg.eraMs || 1)) * 100)}%</span><span>new releases, played within a year of coming out</span></div>
+    <div><span class="big">${median}</span><span>typical release year</span></div>
+    <div><span class="big">${Math.round((before2010 / (agg.eraMs || 1)) * 100)}%</span><span>from before 2010</span></div>`;
+
+  const opts = baseChartOptions("hours");
+  opts.plugins.tooltip.callbacks = {
+    title: (items) => `Released in ${span[items[0].dataIndex]}`,
+    label: (item) => fmtDuration((agg.eras.get(span[item.dataIndex]) || 0)),
+  };
+  charts.era?.destroy();
+  charts.era = new Chart($("#era-chart"), {
+    type: "bar",
+    data: {
+      labels: span,
+      datasets: [{
+        data: span.map((y) => (agg.eras.get(y) || 0) / 3600000),
+        backgroundColor: cssVar("--accent"), hoverBackgroundColor: cssVar("--heat-hi"),
+        borderRadius: { topLeft: 4, topRight: 4 }, borderSkipped: "bottom",
+        maxBarThickness: 32, categoryPercentage: 0.9, barPercentage: 0.9,
       }],
     },
     options: opts,

@@ -5,3 +5,6 @@ my_spotify_data*/
 
 .DS_Store
 __pycache__/
+
+# playlist exports contain friends' Spotify IDs and personal playlist names; only genre/mood summaries are published
+spotify_playlists/
